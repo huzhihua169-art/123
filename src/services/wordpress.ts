@@ -1,8 +1,8 @@
 // src/services/wordpress.ts
 
-const WC_URL = import.meta.env.VITE_WC_URL || '';
-const CONSUMER_KEY = import.meta.env.VITE_WC_CONSUMER_KEY || '';
-const CONSUMER_SECRET = import.meta.env.VITE_WC_CONSUMER_SECRET || '';
+const WC_URL = (import.meta as any).env.VITE_WC_URL || '';
+const CONSUMER_KEY = (import.meta as any).env.VITE_WC_CONSUMER_KEY || '';
+const CONSUMER_SECRET = (import.meta as any).env.VITE_WC_CONSUMER_SECRET || '';
 
 const auth = btoa(`${CONSUMER_KEY}:${CONSUMER_SECRET}`);
 
