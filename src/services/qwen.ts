@@ -1,7 +1,7 @@
 // Alibaba Qwen (DashScope) OpenAI-compatible API Service
-const API_KEY = (import.meta as any).env.VITE_QWEN_API_KEY || "";
+const API_KEY = process.env.QWEN_API_KEY || "sk-f7827a559de4440693d903debfbaf1aa";
 const BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-const MODEL = (import.meta as any).env.VITE_QWEN_MODEL || "Qwen3.5-Flash";
+const MODEL = "qwen-plus"; // Qwen Plus model
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -18,7 +18,7 @@ async function callAI(messages: OpenAICompatibleMessage[], jsonMode: boolean = f
     throw new Error("AI API Key is missing. Please check your .env file.");
   }
 
-  const response = await fetch(`${BASE_URL}/v1/chat/completions`, {
+  const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -27,18 +27,31 @@ async function callAI(messages: OpenAICompatibleMessage[], jsonMode: boolean = f
     body: JSON.stringify({
       model: MODEL,
       messages: messages,
-      temperature: 0.7,
-      response_format: jsonMode ? { type: "json_object" } : undefined
+      temperature: 0.7
     })
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "Failed to call AI API");
+    let errorMessage = "Failed to call AI API";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error?.message || JSON.stringify(errorData);
+      
+      if (errorMessage.includes("Access to model denied")) {
+        errorMessage = `${errorMessage}\n\n💡 FIX: The current API key does not have permission for the '${MODEL}' model. Please ensure you have enabled this model in your Aliyun DashScope console, or provide a valid QWEN_API_KEY in the environment variables.`;
+      }
+    } catch (e) {
+      errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  try {
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (e) {
+    throw new Error("Failed to parse AI API response");
+  }
 }
 
 export async function chatWithMaster(
@@ -103,7 +116,29 @@ export async function generateBaziReport(userData: {
     - Wristbands: Suggest specific bead combinations or styles (e.g., matte obsidian with gold accents).
     
     Tone: Trendy, intimate, healing, unique, Gen Z friendly.
-    Format: JSON. Ensure the output is a valid JSON object matching the requested structure.
+    Format: JSON. You MUST return ONLY a valid JSON object matching this exact structure:
+    {
+      "summary": "A concise summary of their destiny (1-2 sentences)",
+      "elements": {
+        "wood": 20,
+        "fire": 30,
+        "earth": 10,
+        "metal": 15,
+        "water": 25
+      },
+      "guidance": "Warm, healing psychological guidance addressing their specific troubles.",
+      "recommendations": {
+        "crystals": ["Crystal 1", "Crystal 2"],
+        "crystalDetails": [
+          { "name": "Crystal Name", "properties": "Healing properties", "connection": "Why it helps them" }
+        ],
+        "jewelry": ["Style 1", "Style 2"],
+        "luckyColors": ["Color 1", "Color 2"],
+        "wristbands": ["Wristband style 1"],
+        "reasoning": "Why these specific items were chosen."
+      }
+    }
+    The "elements" object must contain exactly the keys "wood", "fire", "earth", "metal", "water" with integer values summing to 100.
   `;
 
   const messages: OpenAICompatibleMessage[] = [
@@ -113,7 +148,48 @@ export async function generateBaziReport(userData: {
 
   try {
     const text = await callAI(messages, true);
-    return JSON.parse(text || "{}");
+    
+    // Robust JSON parsing to handle potential markdown wrappers or extra text
+    let parsedData: any = {};
+    try {
+      // First try direct parsing
+      parsedData = JSON.parse(text || "{}");
+    } catch (e) {
+      // Try to extract JSON from markdown blocks
+      const match = text?.match(/```(?:json)?\n([\s\S]*?)\n```/);
+      if (match && match[1]) {
+        try {
+          parsedData = JSON.parse(match[1]);
+        } catch (e2) {
+          throw new Error("Failed to parse JSON from markdown block");
+        }
+      } else {
+        // Try to find the first { and last }
+        const start = text?.indexOf('{');
+        const end = text?.lastIndexOf('}');
+        if (start !== undefined && end !== undefined && start !== -1 && end !== -1 && end > start) {
+          try {
+            parsedData = JSON.parse(text!.substring(start, end + 1));
+          } catch (e3) {
+            throw new Error("Failed to parse extracted JSON object");
+          }
+        } else {
+          throw new Error("No JSON object found in AI response");
+        }
+      }
+    }
+    
+    // Ensure elements exist
+    if (!parsedData.elements) {
+      parsedData.elements = { wood: 20, fire: 20, earth: 20, metal: 20, water: 20 };
+    }
+    
+    // Ensure summary exists
+    if (!parsedData.summary) {
+      parsedData.summary = "The cosmic energies are shifting. Your destiny is still unfolding.";
+    }
+
+    return parsedData;
   } catch (error) {
     console.error("Report Generation Error:", error);
     throw error;

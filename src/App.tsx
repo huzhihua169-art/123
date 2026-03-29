@@ -42,7 +42,7 @@ import {
   X
 } from 'lucide-react';
 import { cn } from './lib/utils';
-import { generateBaziReport, chatWithMaster, ChatMessage } from './services/gemini';
+import { generateBaziReport, chatWithMaster, ChatMessage } from './services/qwen';
 import ReactMarkdown from 'react-markdown';
 
 // --- Types ---
@@ -2191,6 +2191,8 @@ export default function App() {
 
     try {
       const result = await generateBaziReport(userData);
+      clearInterval(interval);
+      setLoadingProgress(100);
       setReport(result);
       
       // Add to history
@@ -2204,6 +2206,7 @@ export default function App() {
       
       setStep('report');
     } catch (error) {
+      clearInterval(interval);
       console.error("Failed to generate report:", error);
       setStep('birth-info');
     }
