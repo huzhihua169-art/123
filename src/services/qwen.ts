@@ -1,5 +1,6 @@
+/// <reference types="vite/client" />
 // Alibaba Qwen (DashScope) OpenAI-compatible API Service
-const API_KEY = process.env.QWEN_API_KEY || "sk-f7827a559de4440693d903debfbaf1aa";
+const API_KEY = (import.meta as any).env.VITE_QWEN_API_KEY;
 const BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const MODEL = "qwen-plus"; // Qwen Plus model
 
@@ -81,9 +82,9 @@ Keep your responses concise (1-3 short paragraphs), warm, and conversational. Us
   try {
     const text = await callAI(messages);
     return text || "The winds of destiny are quiet right now. Please tell me more.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat Error:", error);
-    return "I am currently meditating to reconnect with the cosmic energy. Please try again in a moment.";
+    throw error;
   }
 }
 

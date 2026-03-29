@@ -44,6 +44,7 @@ import {
 import { cn } from './lib/utils';
 import { generateBaziReport, chatWithMaster, ChatMessage } from './services/qwen';
 import ReactMarkdown from 'react-markdown';
+import { Toaster, toast } from 'sonner';
 
 // --- Types ---
 type Step = 'intro' | 'troubles' | 'birth-info' | 'generating' | 'report' | 'diy' | 'shop' | 'chat' | 'cart' | 'orders' | 'profile';
@@ -2068,8 +2069,6 @@ export default function App() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatting, setIsChatting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('Action completed');
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
   const [sharedCreations, setSharedCreations] = useState<{ id: string, name: string, element: string, beads: any[] }[]>([
     { id: '1', name: 'Ocean Whisper', element: 'water', beads: [] },
@@ -2088,9 +2087,7 @@ export default function App() {
       }
       return [...prev, { ...item, quantity: 1 }];
     });
-    setSuccessMessage(`${item.name} added to your collection`);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    toast.success(`${item.name} added to your collection`);
   };
 
   const removeFromCart = (id: string) => {
@@ -2119,9 +2116,7 @@ export default function App() {
     setOrders(prev => [newOrder, ...prev]);
     setCart([]);
     setStep('orders');
-    setSuccessMessage('Order placed successfully');
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    toast.success('Order placed successfully');
   };
 
   const handleLogout = () => {
@@ -2137,9 +2132,7 @@ export default function App() {
     setOrders([]);
     setCart([]);
     setStep('intro');
-    setSuccessMessage('Signed out successfully');
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    toast.success('Signed out successfully');
   };
 
   const handleStart = () => setStep('troubles');
@@ -2166,9 +2159,10 @@ export default function App() {
     try {
       const reply = await chatWithMaster(text, chatMessages, userData, report);
       setChatMessages([...newMessages, { role: 'model', content: reply }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error:", error);
-      setChatMessages([...newMessages, { role: 'model', content: "My apologies, the cosmic connection was briefly interrupted. Could you repeat that?" }]);
+      const errorMessage = error.message || "My apologies, the cosmic connection was briefly interrupted. Could you repeat that?";
+      setChatMessages([...newMessages, { role: 'model', content: errorMessage }]);
     } finally {
       setIsChatting(false);
     }
@@ -2205,15 +2199,17 @@ export default function App() {
       setReportHistory(prev => [historyItem, ...prev]);
       
       setStep('report');
-    } catch (error) {
+    } catch (error: any) {
       clearInterval(interval);
       console.error("Failed to generate report:", error);
+      toast.error(error.message || "Failed to generate report. Please try again.");
       setStep('birth-info');
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-paper relative overflow-x-hidden">
+      <Toaster position="top-center" />
       <MysticalBackground />
       {/* Ink Wash Texture Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.05] mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/handmade-paper.png')]" />
@@ -2820,9 +2816,7 @@ export default function App() {
                         <form 
                           onSubmit={(e) => {
                             e.preventDefault();
-                            console.log(`Detailed report sent to ${userData.email}! Please check your inbox.`);
-                            setShowSuccess(true);
-                            setTimeout(() => setShowSuccess(false), 3000);
+                            toast.success(`Detailed report sent to ${userData.email}! Please check your inbox.`);
                           }}
                           className="flex flex-col gap-4 md:gap-6"
                         >
@@ -2962,21 +2956,6 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <AnimatePresence>
-        {showSuccess && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-12 md:bottom-12 left-1/2 -translate-x-1/2 z-[100] bg-white/90 backdrop-blur-2xl border border-aura-gold/30 px-6 md:px-8 py-3 md:py-4 rounded-full shadow-2xl flex items-center gap-3 md:gap-4 w-[90%] md:w-auto justify-center"
-          >
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-aura-gold/20 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-aura-gold" />
-            </div>
-            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-ink-black text-center">{successMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <Footer />
       
       {/* Disclaimer */}
